@@ -20,6 +20,8 @@ package com.rk4 {
 			addEventListener(Event.ENTER_FRAME, onEnterFrame);
 			stage.addEventListener(MouseEvent.CLICK, onMouseClick);
 		}
+		
+	
 
 		protected function onEnterFrame(... ignored):void {
 			var deltaTime:Number = getTimer() - prevTime;
@@ -56,8 +58,8 @@ package com.rk4 {
 			var c:Derivative = evaluate(state, t, dt * 0.5, b);
 			var d:Derivative = evaluate(state, t, dt, c);
 
-			var dxdt:Vector2D = (b.dPos.add(c.dPos)).multiplyScalar(2.0).add(a.dPos).add(d.dPos).multiplyScalar(1.0 / 6.0);
-			var dvdt:Vector2D = (b.dVel.add(c.dVel)).multiplyScalar(2.0).add(a.dVel).add(d.dVel).multiplyScalar(1.0 / 6.0);
+			var dxdt:Vector2D = (b.vel.add(c.vel)).multiplyScalar(2.0).add(a.vel).add(d.vel).multiplyScalar(1.0 / 6.0);
+			var dvdt:Vector2D = (b.force.add(c.force)).multiplyScalar(2.0).add(a.force).add(d.force).multiplyScalar(1.0 / 6.0);
 
 			state.pos = dxdt.multiplyScalar(dt).add(state.pos);
 			state.vel = dvdt.multiplyScalar(dt).add(state.vel);
@@ -65,12 +67,12 @@ package com.rk4 {
 
 		protected function evaluate(initial:State, t:Number, dt:Number, derivative:Derivative):Derivative {
 			var state:State = new State();
-			state.pos = initial.pos.add(derivative.dPos.multiplyScalar(dt));
-			state.vel = initial.vel.add(derivative.dVel.multiplyScalar(dt));
+			state.pos = initial.pos.add(derivative.vel.multiplyScalar(dt));
+			state.vel = initial.vel.add(derivative.force.multiplyScalar(dt));
 
 			var derivativeOut:Derivative = new Derivative();
-			derivativeOut.dPos = state.vel;
-			derivativeOut.dVel = acceleration(state, t, dt);
+			derivativeOut.vel = state.vel;
+			derivativeOut.force = acceleration(state, t, dt);
 			return derivativeOut;
 		}
 
