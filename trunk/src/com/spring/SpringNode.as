@@ -5,8 +5,8 @@ package com.spring {
 	public class SpringNode {
 
 		// constant
-		public static const MASS:Number = 1.0;
-		public static const INVERSE_MASS:Number = 1.0/MASS;
+		public static const MASS:Number = 10.0;
+		public static const INVERSE_MASS:Number = 1.0 / MASS;
 
 		public var neighbors:Array = [];
 		public var naturalDistance:Array = [];
@@ -17,12 +17,15 @@ package com.spring {
 
 		// secondary
 		public var vel:Vector2D = new Vector2D();
+		
 
 		public function clone():SpringNode {
 			var newState:SpringNode = new SpringNode();
 			newState.momentum = momentum.clone();
 			newState.pos = pos.clone();
 			newState.vel = vel.clone();
+			
+			
 			return newState;
 		}
 
@@ -36,14 +39,15 @@ package com.spring {
 				force.zero();
 				return force;
 			}
-			
+		
+
 			var forceDir:Vector2D = new Vector2D(dx, dy);
 			forceDir.normalize(distance);
-			
-			var damper:Vector2D = relVel.multiplyScalar(1);
-			
-			var kComp:Vector2D = forceDir.multiplyScalar(distance).multiplyScalar(-k);
-			var newForce:Vector2D = kComp;
+
+			var damper:Vector2D = relVel.multiplyScalar(2);
+
+			var kComp:Vector2D = forceDir.multiplyScalar(distance - 10).multiplyScalar(k);
+			var newForce:Vector2D = kComp.subtract(damper);
 
 
 			return newForce;
