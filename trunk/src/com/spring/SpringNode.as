@@ -6,6 +6,7 @@ package com.spring {
 
 		public var neighbors:Array = [];
 		public var naturalDistance:Array = [];
+		public var distances:Array = []
 
 		// primary
 		public var pos:Vector2D = new Vector2D();
@@ -30,7 +31,7 @@ package com.spring {
 		public function get inverseMass():Number {
 			return _inverseMass;
 		}
-
+		
 		public static function calculateForce(force:Vector2D, pa:Vector2D, pb:Vector2D, k:Number, natDistance:Number, relVel:Vector2D):Vector2D {
 			var dx:Number = pb.x - pa.x;
 			var dy:Number = pb.y - pa.y;
@@ -45,8 +46,7 @@ package com.spring {
 			var forceDir:Vector2D = new Vector2D(dx, dy);
 			forceDir.normalize(distance);
 
-			//var damper:Vector2D = relVel.multiplyScalar(2.1);
-			var damper:Vector2D = forceDir.multiplyScalar(relVel.dot(forceDir) * (50));
+			var damper:Vector2D = forceDir.multiplyScalar(relVel.dot(forceDir) * (20));
 
 			var kComp:Vector2D = forceDir.multiplyScalar(distance - natDistance).multiplyScalar(k);
 			var newForce:Vector2D = kComp.subtract(damper);

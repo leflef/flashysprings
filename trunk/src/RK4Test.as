@@ -24,7 +24,7 @@ package {
 		public var debugText:TextField;
 
 		// SPRING 
-		public static const TOTAL_NODES:Number = 6;
+		public static const TOTAL_NODES:Number = 3;
 
 		public function RK4Test() {
 			stage.frameRate = 120;
@@ -35,12 +35,77 @@ package {
 			currentState = new State();
 
 			createString();
+			//createBox();
 
 			prevState = currentState.clone();
 
 
 			prevTime = getTimer();
 			addEventListener(Event.ENTER_FRAME, onEnterFrame);
+		}
+
+		protected function createBox():void {
+			var vtx1:SpringNode = new SpringNode();
+			vtx1.pos = new Vector2D(100, 100);
+
+			var vtx2:SpringNode = new SpringNode();
+			vtx2.pos = new Vector2D(200, 100);
+
+			var vtx3:SpringNode = new SpringNode();
+			vtx3.pos = new Vector2D(100, 200);
+
+			var vtx4:SpringNode = new SpringNode();
+			vtx4.pos = new Vector2D(200, 200);
+
+			var vtx5:SpringNode = new SpringNode();
+			vtx5.pos = new Vector2D(150, 150);
+
+			vtx1.neighbors.push(vtx2);
+			vtx1.neighbors.push(vtx4);
+			vtx1.neighbors.push(vtx5);
+			vtx1.naturalDistance.push(100);
+			vtx1.naturalDistance.push(100);
+			vtx1.naturalDistance.push(100);
+
+			vtx2.neighbors.push(vtx1);
+			vtx2.neighbors.push(vtx3);
+			vtx2.neighbors.push(vtx5);
+			vtx2.naturalDistance.push(100);
+			vtx2.naturalDistance.push(100);
+			vtx2.naturalDistance.push(100);
+
+			vtx3.neighbors.push(vtx4);
+			vtx3.neighbors.push(vtx2);
+			vtx3.neighbors.push(vtx5);
+			vtx3.naturalDistance.push(100);
+			vtx3.naturalDistance.push(100);
+			vtx3.naturalDistance.push(100);
+
+			vtx4.neighbors.push(vtx3);
+			vtx4.neighbors.push(vtx1);
+			vtx4.neighbors.push(vtx5);
+			vtx4.naturalDistance.push(100);
+			vtx4.naturalDistance.push(100);
+			vtx4.naturalDistance.push(100);
+
+			vtx5.neighbors.push(vtx1);
+			vtx5.neighbors.push(vtx2);
+			vtx5.neighbors.push(vtx3);
+			vtx5.neighbors.push(vtx4);
+			vtx5.naturalDistance.push(Math.sqrt(20000));
+			vtx5.naturalDistance.push(Math.sqrt(20000));
+			vtx5.naturalDistance.push(Math.sqrt(20000));
+			vtx5.naturalDistance.push(Math.sqrt(20000));
+
+			currentState.springs.push(vtx1);
+			currentState.springs.push(vtx2);
+			currentState.springs.push(vtx3);
+			currentState.springs.push(vtx4);
+			currentState.springs.push(vtx5);
+
+			var anchor:SpringAnchor = new SpringAnchor();
+			anchor.pos = currentState.springs[0].pos.clone();
+			currentState.anchors.push(anchor);
 		}
 
 		protected function createString():void {
@@ -53,32 +118,34 @@ package {
 			for (var i:int = 0; i < TOTAL_NODES; i++) {
 				var springNode:SpringNode = new SpringNode();
 				springNode.pos = new Vector2D((stage.stageWidth / 2) + i * (distance + 10), 100);
-				springNode.mass = 1;
 				currentState.springs.push(springNode);
 			}
 
 			// Connect first spring
 			currentState.springs[0].neighbors.push(currentState.springs[1]);
 			currentState.springs[0].naturalDistance.push(distance);
+			currentState.springs[0].distances.push(distance);
 
-			// Connect last spring
-			currentState.springs[TOTAL_NODES - 1].neighbors.push(currentState.springs[TOTAL_NODES - 2]);
-			currentState.springs[TOTAL_NODES - 1].naturalDistance.push(distance * 2);
 
 			// Connect the nodes
 			for (var j:int = 1; j < TOTAL_NODES - 1; j++) {
 				currentState.springs[j].neighbors.push(currentState.springs[j - 1]);
-				currentState.springs[j].naturalDistance.push(distance * 2);
+				currentState.springs[j].naturalDistance.push(distance);
+				currentState.springs[j].distances.push(distance);
 
 				currentState.springs[j].neighbors.push(currentState.springs[j + 1]);
-				currentState.springs[j].naturalDistance.push(distance * 2);
+				currentState.springs[j].naturalDistance.push(distance);
+				currentState.springs[j].distances.push(distance);
 			}
+			
+				// Connect last spring
+			currentState.springs[TOTAL_NODES - 1].neighbors.push(currentState.springs[TOTAL_NODES - 2]);
+			currentState.springs[TOTAL_NODES - 1].naturalDistance.push(distance);
+			currentState.springs[TOTAL_NODES - 1].distances.push(distance);
 
 			var anchor:SpringAnchor = new SpringAnchor();
 			anchor.pos = currentState.springs[0].pos.clone();
 			currentState.anchors.push(anchor);
-			
-			currentState.getAt(TOTAL_NODES/2).mass = 2;
 
 			return;
 		}
@@ -130,7 +197,9 @@ package {
 			for (i = 0; i < state.springs.length; i++) {
 				springNode = state.getAt(i);
 				graphics.moveTo(springNode.pos.x, springNode.pos.y);
-				graphics.lineTo(springNode.neighbors[0].pos.x, springNode.neighbors[0].pos.y);
+				for each (var neighbor:SpringNode in springNode.neighbors) {
+					graphics.lineTo(neighbor.pos.x, neighbor.pos.y);
+				}
 			}
 
 		}
@@ -141,7 +210,7 @@ package {
 			var c:DerivativeHolder = evaluate(state, t, dt * 0.5, b);
 			var d:DerivativeHolder = evaluate(state, t, dt, c);
 
-			for (var i:Number = 0; i < TOTAL_NODES; i++) {
+			for (var i:Number = 0; i < state.springs.length; i++) {
 				var aD:Derivative = a.getAt(i);
 				var bD:Derivative = b.getAt(i)
 				var cD:Derivative = c.getAt(i)
@@ -156,10 +225,14 @@ package {
 
 				// assuming unit mass
 				currentSpring.vel = currentSpring.momentum.multiplyScalar(currentSpring.inverseMass);
+				
+				if (currentSpring.distances[0] > 10) {
+					currentSpring.vel.zero();
+				}
 			}
 
-			//holdAnchor(state.getAt(0), state.anchors[0].pos);
-			holdAnchor(state.getAt(0), new Vector2D(mouseX, mouseY));
+			holdAnchor(state.getAt(0), new Vector2D(150, 150));
+			//holdAnchor(state.getAt(0), new Vector2D(mouseX, mouseY));
 
 		}
 
@@ -167,7 +240,7 @@ package {
 		public function evaluate(initial:State, t:Number, dt:Number, inputDerivatives:DerivativeHolder):DerivativeHolder {
 			var outputDerivatives:DerivativeHolder = new DerivativeHolder();
 
-			for (var i:Number = 0; i < TOTAL_NODES; i++) {
+			for (var i:Number = 0; i < initial.springs.length; i++) {
 				var spring:SpringNode = initial.getAt(i);
 				var derivative:Derivative = inputDerivatives.getAt(i);
 
@@ -197,24 +270,27 @@ package {
 			var source:Vector2D = new Vector2D();
 			var dest:Vector2D = new Vector2D();
 			var force:Vector2D = new Vector2D;
-			var naturalDistance:Number;
 			source = spring.pos.clone();
 
 			for (var i:Number = 0; i < spring.neighbors.length; i++) {
 				var neighbor:SpringNode = spring.neighbors[i];
 				dest = neighbor.pos.clone();
+				
+				
+				spring.distances[i] = spring.pos.distance(neighbor.pos);
+				
 				var relVel:Vector2D = spring.vel.subtract(neighbor.vel);
-				force = SpringNode.calculateForce(force, dest, source, -500.0, spring.naturalDistance[i], relVel);
+				force = SpringNode.calculateForce(force, dest, source, -100.0, spring.naturalDistance[i], relVel);
 				result = result.add(force);
 			}
 
 			// Apply gravity
-			//result = result.add(new Vector2D(0, spring.mass * 200));
+			result = result.add(new Vector2D(0, spring.mass * 500));
 			return result;
 		}
 
 		public function euler(state:State, t:Number, dt:Number):void {
-			for (var i:Number = 0; i < TOTAL_NODES; i++) {
+			for (var i:Number = 0; i < state.springs.length; i++) {
 				var spring:SpringNode = state.getAt(i);
 
 				// Here we do a simple Euler Integratioin
