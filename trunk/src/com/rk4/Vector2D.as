@@ -4,8 +4,11 @@ package com.rk4 {
 	 * @author bsu
 	 */
 	public class Vector2D {
+		public static var zeroVector:Vector2D = new Vector2D();
+
 		public var x:Number;
 		public var y:Number;
+
 
 		public function Vector2D(x:Number = 0, y:Number = 0):void {
 			this.x = x;
