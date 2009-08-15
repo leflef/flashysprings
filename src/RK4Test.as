@@ -3,9 +3,11 @@ package {
 	import com.rk4.State;
 	import com.rk4.Vector2D;
 	import com.spring.DerivativeHolder;
-	import com.spring.SpringAnchor;
+	import com.spring.IAnchor;
+	import com.spring.MouseAnchor;
 	import com.spring.SpringNode;
-	
+	import com.spring.StaticAnchor;
+
 	import flash.display.Sprite;
 	import flash.events.Event;
 	import flash.text.TextField;
@@ -14,7 +16,7 @@ package {
 	[SWF(width=640, height = 480)]
 	public class RK4Test extends Sprite {
 
-		public static const STEP_DT:Number = 1 / 120; // run physics simulation at 60 fps
+		public static const STEP_DT:Number = 1 / 60; // run physics simulation at 60 fps
 		public var accumulator:Number = 0;
 		public var prevTime:Number = 0;
 		public var time:Number = 0;
@@ -22,9 +24,6 @@ package {
 		public var prevState:State;
 		public var currentState:State;
 		public var debugText:TextField;
-
-		// SPRING 
-		public static const TOTAL_NODES:Number = 3;
 
 		public function RK4Test() {
 			stage.frameRate = 120;
@@ -34,101 +33,133 @@ package {
 
 			currentState = new State();
 
-			createString();
-			//createBox();
+			createCloth();
+			//createString();
 
 			prevState = currentState.clone();
-
 
 			prevTime = getTimer();
 			addEventListener(Event.ENTER_FRAME, onEnterFrame);
 		}
 
-		protected function createBox():void {
-			var vtx1:SpringNode = new SpringNode();
-			vtx1.pos = new Vector2D(100, 100);
+		/**
+		 * Creates a grid for a cloth
+		 *
+		 * 1 -- 2 -- 3
+		 * 4 -- 5 -- 6
+		 * 7 -- 8 -- 9
+		 * and so on...
+		 */
+		protected function createCloth():void {
+			var rows:Number = 6;
+			var cols:Number = 6;
+			var offset:Vector2D = new Vector2D(100, 100);
+			var gridWidth:Number = 30;
+			var gridHeight:Number = 30;
+			var i:uint;
+			var j:uint;
+			var currentIdx:uint;
 
-			var vtx2:SpringNode = new SpringNode();
-			vtx2.pos = new Vector2D(200, 100);
+			// Create the springs in a row
+			for (i = 0; i < rows; i++) {
+				for (j = 0; j < cols; j++) {
+					currentState.springs.push(new SpringNode(new Vector2D(offset.x + (j * gridWidth), offset.y + (i * gridHeight)), 0.9));
+				}
+			}
 
-			var vtx3:SpringNode = new SpringNode();
-			vtx3.pos = new Vector2D(100, 200);
+			// Attach left links
+			// 1 --> 2 --> 3
+			//
+			for (i = 0; i < rows; i++) {
+				for (j = 0; j < cols - 1; j++) {
 
-			var vtx4:SpringNode = new SpringNode();
-			vtx4.pos = new Vector2D(200, 200);
+					currentIdx = (i * cols) + j;
+					var rightNeighborIdx:uint = (i * cols) + (j + 1);
 
-			var vtx5:SpringNode = new SpringNode();
-			vtx5.pos = new Vector2D(150, 150);
+					currentState.getAt(currentIdx).neighbors.push(currentState.getAt(rightNeighborIdx));
+					currentState.getAt(currentIdx).naturalDistance.push(gridWidth);
+				}
+			}
 
-			vtx1.neighbors.push(vtx2);
-			vtx1.neighbors.push(vtx4);
-			vtx1.neighbors.push(vtx5);
-			vtx1.naturalDistance.push(100);
-			vtx1.naturalDistance.push(100);
-			vtx1.naturalDistance.push(100);
+			// Attach right links
+			// 1 <-- 2 <-- 3
+			for (i = 0; i < rows; i++) {
+				for (j = cols - 1; j > 0; j--) {
 
-			vtx2.neighbors.push(vtx1);
-			vtx2.neighbors.push(vtx3);
-			vtx2.neighbors.push(vtx5);
-			vtx2.naturalDistance.push(100);
-			vtx2.naturalDistance.push(100);
-			vtx2.naturalDistance.push(100);
+					currentIdx = (i * cols) + j;
+					var leftNeighborIdx:uint = (i * cols) + (j - 1);
 
-			vtx3.neighbors.push(vtx4);
-			vtx3.neighbors.push(vtx2);
-			vtx3.neighbors.push(vtx5);
-			vtx3.naturalDistance.push(100);
-			vtx3.naturalDistance.push(100);
-			vtx3.naturalDistance.push(100);
+					currentState.getAt(currentIdx).neighbors.push(currentState.getAt(leftNeighborIdx));
+					currentState.getAt(currentIdx).naturalDistance.push(gridWidth);
+				}
+			}
 
-			vtx4.neighbors.push(vtx3);
-			vtx4.neighbors.push(vtx1);
-			vtx4.neighbors.push(vtx5);
-			vtx4.naturalDistance.push(100);
-			vtx4.naturalDistance.push(100);
-			vtx4.naturalDistance.push(100);
+			// Attach down links
+			// 1 -- 2 -- 3
+			// |    |    |
+			// V    V    V
+			// 1 -- 2 -- 3
+			for (j = 0; j < cols; j++) {
+				for (i = 0; i < rows - 1; i++) {
 
-			vtx5.neighbors.push(vtx1);
-			vtx5.neighbors.push(vtx2);
-			vtx5.neighbors.push(vtx3);
-			vtx5.neighbors.push(vtx4);
-			vtx5.naturalDistance.push(Math.sqrt(20000));
-			vtx5.naturalDistance.push(Math.sqrt(20000));
-			vtx5.naturalDistance.push(Math.sqrt(20000));
-			vtx5.naturalDistance.push(Math.sqrt(20000));
+					currentIdx = (i * cols) + j;
+					var downNeighborIdx:uint = ((i + 1) * cols) + j;
 
-			currentState.springs.push(vtx1);
-			currentState.springs.push(vtx2);
-			currentState.springs.push(vtx3);
-			currentState.springs.push(vtx4);
-			currentState.springs.push(vtx5);
+					currentState.getAt(currentIdx).neighbors.push(currentState.getAt(downNeighborIdx));
+					currentState.getAt(currentIdx).naturalDistance.push(gridWidth);
+				}
+			}
 
-			var anchor:SpringAnchor = new SpringAnchor();
-			anchor.pos = currentState.springs[0].pos.clone();
-			currentState.anchors.push(anchor);
+			// Attach up links
+			// 1 -- 2 -- 3
+			// ^    ^    ^
+			// |    |    |
+			// 1 -- 2 -- 3
+			for (j = 0; j < cols; j++) {
+				for (i = rows - 1; i > 0; i--) {
+
+					currentIdx = (i * cols) + j;
+					var upNeighborIdx:uint = ((i - 1) * cols) + j;
+
+					currentState.getAt(currentIdx).neighbors.push(currentState.getAt(upNeighborIdx));
+					currentState.getAt(currentIdx).naturalDistance.push(gridWidth);
+				}
+			}
+
+			var anchor1:IAnchor = new MouseAnchor(currentState.getAt(1), this);
+			currentState.anchors.push(anchor1);
+
+			var anchor2:IAnchor = new MouseAnchor(currentState.getAt(cols - 2), this, new Vector2D((cols - 1) * gridWidth));
+			currentState.anchors.push(anchor2);
+
+			var anchor3:IAnchor = new MouseAnchor(currentState.getAt(rows * (cols - 1)), this, new Vector2D(-gridWidth, gridWidth));
+			//currentState.anchors.push(anchor3);
+
+			var anchor4:IAnchor = new MouseAnchor(currentState.getAt(currentState.springs.length - 1), this, new Vector2D((cols) * gridWidth + gridWidth, gridWidth));
+			//currentState.anchors.push(anchor4);
 		}
+
 
 		protected function createString():void {
 			var distance:Number = 10.0;
-
-			// Reset debug text
-			debugText.text = "";
+			var totalNodes:Number = 10;
+			var startIdx:Number = currentState.springs.length - 1;
 
 			// Create the springs in a row
-			for (var i:int = 0; i < TOTAL_NODES; i++) {
+			for (var i:int = startIdx; i < totalNodes; i++) {
 				var springNode:SpringNode = new SpringNode();
 				springNode.pos = new Vector2D((stage.stageWidth / 2) + i * (distance + 10), 100);
 				currentState.springs.push(springNode);
 			}
 
 			// Connect first spring
-			currentState.springs[0].neighbors.push(currentState.springs[1]);
-			currentState.springs[0].naturalDistance.push(distance);
-			currentState.springs[0].distances.push(distance);
+			currentState.getAt(startIdx).neighbors.push(currentState.springs[startIdx + 1]);
+			currentState.getAt(startIdx).naturalDistance.push(distance);
+			currentState.getAt(startIdx).distances.push(distance);
 
 
 			// Connect the nodes
-			for (var j:int = 1; j < TOTAL_NODES - 1; j++) {
+			for (var j:int = startIdx + 1; j < totalNodes - 1; j++) {
 				currentState.springs[j].neighbors.push(currentState.springs[j - 1]);
 				currentState.springs[j].naturalDistance.push(distance);
 				currentState.springs[j].distances.push(distance);
@@ -137,14 +168,13 @@ package {
 				currentState.springs[j].naturalDistance.push(distance);
 				currentState.springs[j].distances.push(distance);
 			}
-			
-				// Connect last spring
-			currentState.springs[TOTAL_NODES - 1].neighbors.push(currentState.springs[TOTAL_NODES - 2]);
-			currentState.springs[TOTAL_NODES - 1].naturalDistance.push(distance);
-			currentState.springs[TOTAL_NODES - 1].distances.push(distance);
 
-			var anchor:SpringAnchor = new SpringAnchor();
-			anchor.pos = currentState.springs[0].pos.clone();
+			// Connect last spring
+			currentState.getAt(startIdx + totalNodes - 1).neighbors.push(currentState.getAt(startIdx + totalNodes - 2));
+			currentState.getAt(startIdx + totalNodes - 1).naturalDistance.push(distance);
+			currentState.getAt(startIdx + totalNodes - 1).distances.push(distance);
+
+			var anchor:StaticAnchor = new StaticAnchor(currentState.getAt(0));
 			currentState.anchors.push(anchor);
 
 			return;
@@ -156,6 +186,10 @@ package {
 
 
 		public function onEnterFrame(... ignored):void {
+			// Reset debug text
+			debugText.text = "";
+
+
 			var deltaTime:Number = getTimer() - prevTime;
 			deltaTime *= .001;
 			prevTime = getTimer();
@@ -196,8 +230,8 @@ package {
 			graphics.lineStyle(1, 0x000000);
 			for (i = 0; i < state.springs.length; i++) {
 				springNode = state.getAt(i);
-				graphics.moveTo(springNode.pos.x, springNode.pos.y);
 				for each (var neighbor:SpringNode in springNode.neighbors) {
+					graphics.moveTo(springNode.pos.x, springNode.pos.y);
 					graphics.lineTo(neighbor.pos.x, neighbor.pos.y);
 				}
 			}
@@ -205,7 +239,7 @@ package {
 		}
 
 		public function integrate(state:State, t:Number, dt:Number):void {
-			var a:DerivativeHolder = evaluate(state, t, 0.0, new DerivativeHolder());
+			var a:DerivativeHolder = evaluate(state, t, 0.0, new DerivativeHolder(state.springs.length));
 			var b:DerivativeHolder = evaluate(state, t, dt * 0.5, a);
 			var c:DerivativeHolder = evaluate(state, t, dt * 0.5, b);
 			var d:DerivativeHolder = evaluate(state, t, dt, c);
@@ -225,20 +259,20 @@ package {
 
 				// assuming unit mass
 				currentSpring.vel = currentSpring.momentum.multiplyScalar(currentSpring.inverseMass);
-				
+
 				if (currentSpring.distances[0] > 10) {
 					currentSpring.vel.zero();
 				}
 			}
 
-			holdAnchor(state.getAt(0), new Vector2D(150, 150));
-			//holdAnchor(state.getAt(0), new Vector2D(mouseX, mouseY));
-
+			for each (var anchor:IAnchor in state.anchors) {
+				anchor.holdAnchor();
+			}
 		}
 
 
 		public function evaluate(initial:State, t:Number, dt:Number, inputDerivatives:DerivativeHolder):DerivativeHolder {
-			var outputDerivatives:DerivativeHolder = new DerivativeHolder();
+			var outputDerivatives:DerivativeHolder = new DerivativeHolder(initial.springs.length);
 
 			for (var i:Number = 0; i < initial.springs.length; i++) {
 				var spring:SpringNode = initial.getAt(i);
@@ -275,12 +309,12 @@ package {
 			for (var i:Number = 0; i < spring.neighbors.length; i++) {
 				var neighbor:SpringNode = spring.neighbors[i];
 				dest = neighbor.pos.clone();
-				
-				
+
+
 				spring.distances[i] = spring.pos.distance(neighbor.pos);
-				
+
 				var relVel:Vector2D = spring.vel.subtract(neighbor.vel);
-				force = SpringNode.calculateForce(force, dest, source, -100.0, spring.naturalDistance[i], relVel);
+				force = SpringNode.calculateForce(force, dest, source, -300.0, spring.naturalDistance[i], relVel);
 				result = result.add(force);
 			}
 

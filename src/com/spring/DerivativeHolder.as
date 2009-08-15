@@ -6,9 +6,9 @@ package com.spring {
 
 		public var _derivatives:Array;
 
-		public function DerivativeHolder() {
+		public function DerivativeHolder(length:uint) {
 			_derivatives = [];
-			for (var i:Number = 0; i < RK4Test.TOTAL_NODES; i++) {
+			for (var i:Number = 0; i < length; i++) {
 				add(new Derivative());
 			}
 		}
@@ -20,7 +20,7 @@ package com.spring {
 		public function add(d:Derivative):void {
 			_derivatives.push(d);
 		}
-		
+
 		public function setAt(i:Number, d:Derivative):void {
 			_derivatives[i] = d;
 		}
