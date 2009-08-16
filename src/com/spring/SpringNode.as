@@ -30,21 +30,24 @@ package com.spring {
 				force.zero();
 				return force;
 			}
+			
 
 			var forceDir:Vector2D = new Vector2D(dx, dy);
 			forceDir.normalize(distance);
 
 			// Which is correct?
-			//var damper:Vector2D = forceDir.multiplyScalar(relVel.dot(forceDir) * (20));
-			var damper:Vector2D = relVel.multiplyScalar(3);
+			//var damper:Vector2D = forceDir.multiplyScalar(relVel.dot(forceDir) * (2));
+			var damper:Vector2D = relVel.multiplyScalar(2);
 
 			var kComp:Vector2D = forceDir.multiplyScalar(distance - natDistance).multiplyScalar(k);
 			var newForce:Vector2D = kComp.subtract(damper);
+			
+			
 
 			return newForce;
 		}
 
-		public function SpringNode(pos:Vector2D = null, mass = 1.0):void {
+		public function SpringNode(pos:Vector2D = null, mass:Number = 1.0):void {
 			this.pos = (pos != null) ? pos : Vector2D.zeroVector;
 			this.mass = mass;
 		}
