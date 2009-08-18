@@ -6,8 +6,9 @@ package {
 	import com.spring.IAnchor;
 	import com.spring.MouseAnchor;
 	import com.spring.SpringNode;
+	import com.spring.StaticAnchor;
 
-	import flash.display.SpreadMethod;
+	import flash.display.MovieClip;
 	import flash.display.Sprite;
 	import flash.events.Event;
 	import flash.events.KeyboardEvent;
@@ -36,36 +37,150 @@ package {
 
 			currentState = new State();
 
-			createCloth(currentState, 5, 5);
-			//createString(currentState, 5, 10, 10);
+			//createCloth(currentState, 6, 6);
+			createString(currentState, 10, 10, 10);
+			//createJello(currentState, 4, 4);
 
 			prevState = currentState.clone();
 
 			prevTime = getTimer();
+			prevMouseX = mouseX;
+			prevMouseY = mouseY;
 			stage.addEventListener(Event.ENTER_FRAME, onEnterFrame);
 			stage.addEventListener(KeyboardEvent.KEY_DOWN, onKeyDown);
+			stage.addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
 		}
 
 		protected function onKeyDown(event:KeyboardEvent):void {
-
-			var randomNode:SpringNode = currentState.getAt((Math.random() * (currentState.springs.length - 1)) << 0);
 			switch (event.keyCode) {
-				case Keyboard.UP:
-					randomNode.momentum = randomNode.momentum.add(new Vector2D(0, -200));
-					break;
-				case Keyboard.LEFT:
-					randomNode.momentum = randomNode.momentum.add(new Vector2D(-200, 0));
-					break;
 				case Keyboard.RIGHT:
-					randomNode.momentum = randomNode.momentum.add(new Vector2D(200, 0));
+					for each (var node:SpringNode in currentState.springs) {
+						node.momentum = node.momentum.add(new Vector2D(-50, 0));
+
+					}
 					break;
 				default:
 					break;
 			}
 		}
+		protected var _dragNode:SpringNode = null;
 
 		protected function onMouseDown(event:MouseEvent):void {
+			var targetSpring:SpringNode = event.target.spring;
+			_dragNode = targetSpring;
+		}
 
+		protected function onMouseUp(event:MouseEvent):void {
+			_dragNode = null;
+		}
+
+		protected function createJello(state:State, rows:Number = 2, cols:Number = 2, gridWidth:Number = 20, gridHeight:Number = 20, natDist:Number = 20):void {
+			var offset:Vector2D = new Vector2D(stage.stageWidth / 2, 100);
+			var i:uint;
+			var j:uint;
+			var currentIdx:uint;
+
+			// Create the springs in a row
+			for (i = 0; i < rows; i++) {
+				for (j = 0; j < cols; j++) {
+					var node:SpringNode = new SpringNode(new Vector2D(offset.x + (j * gridWidth), offset.y + (i * gridHeight)), 1.0, 200);
+
+					var clickArea:MovieClip = new MovieClip();
+					clickArea.graphics.beginFill(0xFFFFFF, 1)
+					clickArea.graphics.drawCircle(0, 0, 5);
+					clickArea.graphics.endFill();
+					clickArea.addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
+					clickArea.addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+					clickArea.spring = node;
+
+					node.data = new Object();
+					node.data.graphic = clickArea;
+
+					addChild(clickArea);
+					clickArea.x = node.pos.x;
+					clickArea.y = node.pos.y;
+
+					state.springs.push(node);
+				}
+			}
+
+			var totalWidth:Number = (cols - 1) * gridWidth;
+			var totalHeight:Number = (rows - 1) * gridHeight;
+
+			var centerMassSpring:SpringNode = new SpringNode(new Vector2D(offset.x + totalWidth / 2, offset.y + totalHeight / 2), 0.6, 1500);
+			var massSpringIdx:Number = state.springs.length;
+			state.springs.push(centerMassSpring);
+
+			for (i = 0; i < rows - 1; i++) {
+				for (j = 0; j < cols - 1; j++) {
+					generateStrongMesh(state, (i * cols) + j, massSpringIdx, cols, natDist);
+				}
+			}
+
+			//var anchor1:IAnchor = new StaticAnchor(centerMassSpring);
+			//state.anchors.push(anchor1);
+		}
+
+		protected function generateStrongMesh(state:State, startIdx:uint, centerMassIndex:uint, cols:Number, natDist:Number):void {
+			var centerMassSpring:SpringNode = state.getAt(centerMassIndex);
+
+			var topLeft:uint = startIdx;
+			var topRight:uint = startIdx + 1;
+			var bottomLeft:uint = startIdx + cols;
+			var bottomRight:uint = startIdx + cols + 1;
+
+			var diagonalLength:Number = state.getAt(topLeft).pos.distance(state.getAt(bottomRight).pos);
+
+			state.getAt(topLeft).neighbors.push(state.getAt(topRight));
+			state.getAt(topLeft).naturalDistance.push(natDist);
+			state.getAt(topRight).neighbors.push(state.getAt(topLeft));
+			state.getAt(topRight).naturalDistance.push(natDist);
+
+			state.getAt(bottomLeft).neighbors.push(state.getAt(bottomRight));
+			state.getAt(bottomLeft).naturalDistance.push(natDist);
+			state.getAt(bottomRight).neighbors.push(state.getAt(bottomLeft));
+			state.getAt(bottomRight).naturalDistance.push(natDist);
+
+			state.getAt(topLeft).neighbors.push(state.getAt(bottomLeft));
+			state.getAt(topLeft).naturalDistance.push(natDist);
+			state.getAt(bottomLeft).neighbors.push(state.getAt(topLeft));
+			state.getAt(bottomLeft).naturalDistance.push(natDist);
+
+			state.getAt(topRight).neighbors.push(state.getAt(bottomRight));
+			state.getAt(topRight).naturalDistance.push(natDist);
+			state.getAt(bottomRight).neighbors.push(state.getAt(topRight));
+			state.getAt(bottomRight).naturalDistance.push(natDist);
+
+			state.getAt(startIdx).neighbors.push(state.getAt(cols + startIdx + 1));
+			state.getAt(startIdx).naturalDistance.push(diagonalLength);
+			state.getAt(cols + startIdx + 1).neighbors.push(state.getAt(startIdx));
+			state.getAt(cols + startIdx + 1).naturalDistance.push(diagonalLength);
+
+			state.getAt(startIdx + 1).neighbors.push(state.getAt(cols + startIdx));
+			state.getAt(startIdx + 1).naturalDistance.push(diagonalLength);
+			state.getAt(cols + startIdx).neighbors.push(state.getAt(startIdx + 1));
+			state.getAt(cols + startIdx).naturalDistance.push(diagonalLength);
+
+
+			state.getAt(topLeft).neighbors.push(centerMassSpring);
+			state.getAt(topLeft).naturalDistance.push(state.getAt(topLeft).pos.distance(centerMassSpring.pos));
+			centerMassSpring.neighbors.push(state.getAt(topLeft));
+			centerMassSpring.naturalDistance.push(state.getAt(topLeft).pos.distance(centerMassSpring.pos));
+
+			state.getAt(startIdx + 1).neighbors.push(centerMassSpring);
+			state.getAt(startIdx + 1).naturalDistance.push(state.getAt(startIdx + 1).pos.distance(centerMassSpring.pos));
+			centerMassSpring.neighbors.push(state.getAt(startIdx + 1));
+			centerMassSpring.naturalDistance.push(state.getAt(startIdx + 1).pos.distance(centerMassSpring.pos));
+
+			state.getAt(startIdx + cols).neighbors.push(centerMassSpring);
+			state.getAt(startIdx + cols).naturalDistance.push(state.getAt(startIdx + cols).pos.distance(centerMassSpring.pos));
+			centerMassSpring.neighbors.push(state.getAt(startIdx + cols));
+			centerMassSpring.naturalDistance.push(state.getAt(startIdx + cols).pos.distance(centerMassSpring.pos));
+
+			state.getAt(startIdx + cols + 1).neighbors.push(centerMassSpring);
+			state.getAt(startIdx + cols + 1).naturalDistance.push(state.getAt(startIdx + cols + 1).pos.distance(centerMassSpring.pos));
+			centerMassSpring.neighbors.push(state.getAt(startIdx + cols + 1));
+			centerMassSpring.naturalDistance.push(state.getAt(startIdx + cols + 1).pos.distance(centerMassSpring.pos));
 		}
 
 		/**
@@ -85,7 +200,24 @@ package {
 			// Create the springs in a row
 			for (i = 0; i < rows; i++) {
 				for (j = 0; j < cols; j++) {
-					state.springs.push(new SpringNode(new Vector2D(offset.x + (j * gridWidth), offset.y + (i * gridHeight)), 1.0));
+					var node:SpringNode = new SpringNode(new Vector2D(offset.x + (j * gridWidth), offset.y + (i * gridHeight)), 1.0, 200);
+
+					var clickArea:MovieClip = new MovieClip();
+					clickArea.graphics.beginFill(0xFFFFFF, 1)
+					clickArea.graphics.drawCircle(0, 0, 2);
+					clickArea.graphics.endFill();
+					clickArea.addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
+					clickArea.addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+					clickArea.spring = node;
+
+					node.data = new Object();
+					node.data.graphic = clickArea;
+
+					addChild(clickArea);
+					clickArea.x = node.pos.x;
+					clickArea.y = node.pos.y;
+
+					state.springs.push(node);
 				}
 			}
 
@@ -149,10 +281,10 @@ package {
 			}
 
 			var anchor1:IAnchor = new MouseAnchor(state.getAt(0), this);
-			//state.anchors.push(anchor1);
+			state.anchors.push(anchor1);
 
 			var anchor2:IAnchor = new MouseAnchor(state.getAt(cols - 1), this, new Vector2D((cols - 1) * gridWidth));
-			//state.anchors.push(anchor2);
+			state.anchors.push(anchor2);
 		}
 
 		/**
@@ -164,8 +296,24 @@ package {
 
 			// Create the springs in a row
 			for (i = 0; i < totalNodes; i++) {
-				var springNode:SpringNode = new SpringNode(new Vector2D(offset.x + (i * distance), offset.y), 1);
-				state.springs.push(springNode);
+				var node:SpringNode = new SpringNode(new Vector2D(offset.x + (i * distance), offset.y), 1.0, 200);
+
+				var clickArea:MovieClip = new MovieClip();
+				clickArea.graphics.beginFill(0xFFFFFF, 1)
+				clickArea.graphics.drawCircle(0, 0, 2);
+				clickArea.graphics.endFill();
+				clickArea.addEventListener(MouseEvent.MOUSE_DOWN, onMouseDown);
+				clickArea.addEventListener(MouseEvent.MOUSE_UP, onMouseUp);
+				clickArea.spring = node;
+
+				node.data = new Object();
+				node.data.graphic = clickArea;
+
+				addChild(clickArea);
+				clickArea.x = node.pos.x;
+				clickArea.y = node.pos.y;
+
+				state.springs.push(node);
 			}
 
 			// Connect left nodes
@@ -183,8 +331,8 @@ package {
 			}
 
 			//var anchor:IAnchor = new StaticAnchor(state.getAt(0));
-			//var anchor:IAnchor = new MouseAnchor(state.getAt(0), this);
-			//state.anchors.push(anchor);
+			var anchor:IAnchor = new MouseAnchor(state.getAt(0), this);
+			state.anchors.push(anchor);
 
 			return;
 		}
@@ -215,7 +363,7 @@ package {
 			var interState:State = new State();
 			interState.interpolate(alpha, currentState, prevState);
 
-			render(interState);
+			render(currentState);
 		}
 
 		public function render(state:State):void {
@@ -226,9 +374,13 @@ package {
 
 			for (i = 0; i < state.springs.length; i++) {
 				springNode = state.getAt(i);
-				graphics.beginFill(0xFFFFFF);
-				graphics.drawCircle(springNode.pos.x, springNode.pos.y, 3);
-				graphics.endFill();
+				//graphics.beginFill(0xFFFFFF);
+				//graphics.drawCircle(springNode.pos.x, springNode.pos.y, 3);
+				//graphics.endFill();
+				if (springNode.data != null) {
+					springNode.data.graphic.x = springNode.pos.x;
+					springNode.data.graphic.y = springNode.pos.y;
+				}
 			}
 
 			graphics.lineStyle(1, 0x000000);
@@ -269,10 +421,17 @@ package {
 				// recompute velocity
 				currentSpring.vel = currentSpring.momentum.multiplyScalar(currentSpring.inverseMass);
 
-				if (currentSpring.pos.y > 300) {
+				if (currentSpring.pos.y > stage.stageHeight / 2) {
 					var penetrationVector:Vector2D = prevPos.subtract(currentSpring.pos);
-					currentSpring.pos.y = 300;
-					currentSpring.vel.y = 0;
+					currentSpring.pos.y = stage.stageHeight / 2;
+					currentSpring.vel.y = -currentSpring.vel.y * 0.75;
+					currentSpring.momentum = currentSpring.vel.multiplyScalar(currentSpring.mass);
+				}
+
+				if (currentSpring.pos.x < 10) {
+					var penetrationVector:Vector2D = prevPos.subtract(currentSpring.pos);
+					currentSpring.pos.x = 10;
+					currentSpring.vel.x = currentSpring.vel.x;
 					currentSpring.momentum = currentSpring.vel.multiplyScalar(currentSpring.mass);
 				}
 			}
@@ -280,7 +439,21 @@ package {
 			for each (var anchor:IAnchor in state.anchors) {
 				anchor.holdAnchor();
 			}
+
+			if (_dragNode != null) {
+				var mouseVec:Vector2D = new Vector2D(mouseX - prevMouseX, mouseY - prevMouseY);
+
+				_dragNode.vel = _dragNode.vel.add(mouseVec);
+				_dragNode.pos.x = stage.mouseX;
+				_dragNode.pos.y = stage.mouseY;
+			}
+
+			prevMouseX = mouseX;
+			prevMouseY = mouseY;
 		}
+
+		public var prevMouseX:Number = 0;
+		public var prevMouseY:Number = 0;
 
 
 		public function evaluate(initial:State, t:Number, dt:Number, inputDerivatives:DerivativeHolder):DerivativeHolder {
@@ -298,6 +471,7 @@ package {
 				newSpring.vel = newSpring.momentum.multiplyScalar(newSpring.inverseMass);
 				newSpring.neighbors = spring.neighbors.concat();
 				newSpring.naturalDistance = spring.naturalDistance.concat();
+				newSpring.kVal = spring.kVal;
 
 				var derivativeOut:Derivative = new Derivative();
 				derivativeOut.force = calcSingleForce(newSpring, t, dt);
@@ -324,12 +498,12 @@ package {
 				spring.distances[i] = spring.pos.distance(neighbor.pos);
 
 				var relVel:Vector2D = spring.vel.subtract(neighbor.vel);
-				force = SpringNode.calculateForce(force, dest, source, -200.0, spring.naturalDistance[i], relVel);
+				force = SpringNode.calculateForce(force, dest, source, -spring.kVal, spring.naturalDistance[i], relVel);
 				result = result.add(force);
 			}
 
 			// Apply gravity
-			result = result.add(new Vector2D(0, spring.mass * 200));
+			result = result.add(new Vector2D(0, spring.mass * 400));
 			return result;
 		}
 
